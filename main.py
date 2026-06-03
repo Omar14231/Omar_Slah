@@ -3,6 +3,7 @@ from discord.ext import commands, tasks
 import os
 import asyncio
 import re
+from aiohttp import web
 
 # إعدادات الـ Intents
 intents = discord.Intents.default()
@@ -26,22 +27,35 @@ def parse_time(time_str):
         return int(match.group(1)) * units[match.group(2)]
     return 0
 
+# سيرفر وهمي لإرضاء رندر
+async def web_server(request):
+    return web.Response(text="البوت يعمل!")
+
+async def start_server():
+    app = web.Application()
+    app.router.add_get('/', web_server)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', int(os.environ.get('PORT', 8080)))
+    await site.start()
+
 # نظام البقاء نشطاً (إرسال وحذف)
 @tasks.loop(seconds=5)
 async def keep_alive():
     channel = bot.get_channel(KEEP_ALIVE_CHANNEL)
     if channel:
         msg = await channel.send("تم، أنا أعمل..")
-        await asyncio.sleep(4) # انتظار 4 ثواني
-        await msg.delete() # حذف الرسالة
+        await asyncio.sleep(4)
+        await msg.delete()
 
 @bot.event
 async def on_ready():
     print(f'البوت يعمل كـ {bot.user}')
+    await start_server()
     if not keep_alive.is_running():
         keep_alive.start()
 
-# أمر !رتب
+# 1. أمر !رتب
 @bot.command()
 async def رتب(ctx, role1: discord.Role, role2: discord.Role):
     if ctx.channel.id != CHANNEL_SOURCE:
@@ -78,7 +92,7 @@ async def رتب(ctx, role1: discord.Role, role2: discord.Role):
         
     await timer_msg.edit(content="⚽ المباراة بدأت الآن!", embed=embed)
 
-# أمر !صار
+# 2. أمر !صار
 @bot.command()
 async def صار(ctx, role1: discord.Role, role2: discord.Role):
     await ctx.send("اكتب النتيجة (مثال: 1-0):")
@@ -89,7 +103,7 @@ async def صار(ctx, role1: discord.Role, role2: discord.Role):
     target_channel = bot.get_channel(CHANNEL_DEST)
     if target_channel: await target_channel.send(embed=embed)
 
-# أمر !خبر
+# 3. أمر !خبر
 @bot.command()
 async def خبر(ctx, *, content):
     target_channel = bot.get_channel(CHANNEL_NEWS)
@@ -98,7 +112,7 @@ async def خبر(ctx, *, content):
         await target_channel.send(content=f"<@&{ROLE_EVERYONE}>", embed=embed)
         await ctx.send("تم نشر الخبر.")
 
-# أوامر البث
+# 4. أوامر البث
 @bot.command()
 async def اخبار(ctx):
     global live_mode
