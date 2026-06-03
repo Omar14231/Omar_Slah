@@ -91,4 +91,5 @@ async def on_message(message):
         await target_channel.send(embed=embed)
     await bot.process_commands(message)
 
-bot.run('9957')
+TOKEN = os.getenv('DISCORD_TOKEN')
+bot.run(TOKEN)
