@@ -1,6 +1,8 @@
 import discord
 from discord.ext import commands
+import os
 
+# إعدادات الـ Intents
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -42,8 +44,9 @@ async def رتب(ctx, role1: discord.Role, role2: discord.Role):
     embed.add_field(name="موعد البداية", value=time_str, inline=False)
     
     target_channel = bot.get_channel(CHANNEL_DEST)
-    await target_channel.send(content=f"<@&{ROLE_EVERYONE}>", embed=embed)
-    await ctx.send("تم إرسال تفاصيل المباراة إلى روم السجل!")
+    if target_channel:
+        await target_channel.send(content=f"<@&{ROLE_EVERYONE}>", embed=embed)
+        await ctx.send("تم إرسال تفاصيل المباراة إلى روم السجل!")
 
 # 2. أمر !صار
 @bot.command()
@@ -56,16 +59,18 @@ async def صار(ctx, role1: discord.Role, role2: discord.Role):
     embed.add_field(name="النتيجة الحالية", value=f"**{msg.content}**", inline=False)
     
     target_channel = bot.get_channel(CHANNEL_DEST)
-    await target_channel.send(embed=embed)
-    await ctx.send("تم تحديث النتيجة!")
+    if target_channel:
+        await target_channel.send(embed=embed)
+        await ctx.send("تم تحديث النتيجة!")
 
 # 3. أمر !خبر
 @bot.command()
 async def خبر(ctx, *, content):
     target_channel = bot.get_channel(CHANNEL_NEWS)
-    embed = discord.Embed(title="📢 خبر عاجل", description=content, color=0xFF0000)
-    await target_channel.send(content=f"<@&{ROLE_EVERYONE}>", embed=embed)
-    await ctx.send("تم نشر الخبر!")
+    if target_channel:
+        embed = discord.Embed(title="📢 خبر عاجل", description=content, color=0xFF0000)
+        await target_channel.send(content=f"<@&{ROLE_EVERYONE}>", embed=embed)
+        await ctx.send("تم نشر الخبر!")
 
 # 4. نظام !اخبار و !الغاء
 @bot.command()
@@ -84,12 +89,17 @@ async def الغاء(ctx):
 async def on_message(message):
     if message.author == bot.user:
         return
+    
+    # البث الحي
     if live_mode and message.channel.id == CHANNEL_SOURCE and not message.content.startswith('!'):
         target_channel = bot.get_channel(CHANNEL_DEST)
-        embed = discord.Embed(description=message.content, color=0x00FF00)
-        embed.set_author(name="تغطية حية", icon_url=bot.user.avatar.url)
-        await target_channel.send(embed=embed)
+        if target_channel:
+            embed = discord.Embed(description=message.content, color=0x00FF00)
+            embed.set_author(name="تغطية حية", icon_url=bot.user.avatar.url)
+            await target_channel.send(embed=embed)
+    
     await bot.process_commands(message)
 
+# تشغيل البوت باستخدام توكن من متغيرات البيئة
 TOKEN = os.getenv('DISCORD_TOKEN')
 bot.run(TOKEN)
