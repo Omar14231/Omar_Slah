@@ -30,7 +30,7 @@ bot.on('ready', () => {
     // تفعيل حالة البث البنفسجي
     bot.user.setActivity("كاس العالم 2026", { 
         type: 1, // 1 يرمز لـ STREAMING في ديسكورد
-        url: 'https://www.twitch.tv/your-channel-name' // ضع رابط قناتك هنا
+        url: 'https://www.twitch.tv/adsqwertt11' // ضع رابط قناتك هنا
     });
 });
 
