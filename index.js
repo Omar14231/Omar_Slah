@@ -1,7 +1,17 @@
-require('./keep_alive.js');
-const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ActivityType, REST, Routes } = require('discord.js');
+const express = require('express');
+const app = express();
+const port = 3000;
 
-const bot = new Client({ 
+// --- نظام 24/7 ---
+app.get('/', (req, res) => res.send('البوت يعمل 24/7'));
+app.listen(port, () => console.log(`الخادم يعمل على المنفذ ${port}`));
+
+// --- إعدادات البوت ---
+const TOKEN = process.env.TOKEN; // 
+const APPLICATION_ID = '1461900883871662204'; // ضع آيدي البوت هنا
+
+const client = new Client({ 
     intents: [
         GatewayIntentBits.Guilds, 
         GatewayIntentBits.GuildMessages, 
@@ -13,7 +23,6 @@ const CHANNEL_SOURCE = "1511089965424054292";
 const CHANNEL_DEST = "1508470750456315974";
 const CHANNEL_NEWS = "1506417724010528928";
 const ROLE_EVERYONE = "1478799212312531089";
-
 let live_mode = false;
 
 function parseTime(timeStr) {
@@ -22,23 +31,32 @@ function parseTime(timeStr) {
     const val = parseInt(match[1]);
     const unit = match[2];
     const units = { 'd': 86400, 'h': 3600, 'm': 60, 's': 1 };
-    return val * units[unit];
+    return val * (units[unit] || 0);
 }
 
-bot.on('ready', () => {
-    console.log(`البوت يعمل كـ ${bot.user.tag}`);
-    // تفعيل حالة البث البنفسجي
-    bot.user.setActivity("كاس العالم 2026", { 
-        type: 1, // 1 يرمز لـ STREAMING في ديسكورد
-        url: 'https://www.twitch.tv/adsqwertt11' // ضع رابط قناتك هنا
+// --- أحداث البوت ---
+client.once('ready', async () => {
+    console.log(`✅ البوت جاهز ويعمل كـ ${client.user.tag}`);
+    
+    // تفعيل البث البنفسجي
+    client.user.setActivity("كاس العالم 2026", { 
+        type: ActivityType.Streaming,
+        url: 'https://www.twitch.tv/adsqwertt11'
     });
+
+    // تسجيل الأوامر (لضمان أنها تعمل)
+    const rest = new REST({ version: '10' }).setToken(TOKEN);
+    try {
+        await rest.put(Routes.applicationCommands(APPLICATION_ID), { body: [{ name: 'ping', description: 'اختبار البوت' }] });
+    } catch (e) { console.error(e); }
 });
 
-bot.on('messageCreate', async message => {
+client.on('messageCreate', async message => {
     if (message.author.bot) return;
 
+    // أوامر المباريات والأخبار (نفس كودك السابق)
     if (live_mode && message.channel.id === CHANNEL_SOURCE && !message.content.startsWith('!')) {
-        const destChannel = bot.channels.cache.get(CHANNEL_DEST);
+        const destChannel = client.channels.cache.get(CHANNEL_DEST);
         if (destChannel) {
             const embed = new EmbedBuilder().setDescription(message.content).setColor(0x00FF00);
             await destChannel.send({ embeds: [embed] });
@@ -53,20 +71,12 @@ bot.on('messageCreate', async message => {
         const role1 = message.mentions.roles.at(0);
         const role2 = message.mentions.roles.at(1);
         if (!role1 || !role2) return message.reply("يجب منشن رتبتين!");
-
-        await message.channel.send("اكتب الوقت (مثال: 1h أو 30m):");
-        const filter = m => m.author.id === message.author.id;
-        const collected = await message.channel.awaitMessages({ filter, max: 1, time: 60000 });
-        
+        await message.channel.send("اكتب الوقت (مثال: 1h):");
+        const collected = await message.channel.awaitMessages({ filter: m => m.author.id === message.author.id, max: 1, time: 60000 });
         let totalSeconds = parseTime(collected.first()?.content || "");
         if (totalSeconds <= 0) return message.reply("صيغة الوقت غير صحيحة.");
-
-        const embed = new EmbedBuilder().setTitle("⚽ مباراة جديدة").setColor(0x0000FF)
-            .addFields({ name: "المواجهة", value: `${role1} VS ${role2}`, inline: false });
-        
-        const targetChannel = bot.channels.cache.get(CHANNEL_DEST);
-        const timerMsg = await targetChannel.send({ content: `<@&${ROLE_EVERYONE}>`, embeds: [embed] });
-        
+        const embed = new EmbedBuilder().setTitle("⚽ مباراة جديدة").setColor(0x0000FF).addFields({ name: "المواجهة", value: `${role1} VS ${role2}` });
+        const timerMsg = await client.channels.cache.get(CHANNEL_DEST).send({ content: `<@&${ROLE_EVERYONE}>`, embeds: [embed] });
         while (totalSeconds >= 0) {
             const h = Math.floor(totalSeconds / 3600);
             const m = Math.floor((totalSeconds % 3600) / 60);
@@ -85,15 +95,14 @@ bot.on('messageCreate', async message => {
         if (!role1 || !role2) return;
         await message.channel.send("اكتب النتيجة (مثال: 1-0):");
         const collected = await message.channel.awaitMessages({ filter: m => m.author.id === message.author.id, max: 1 });
-        const embed = new EmbedBuilder().setTitle("⚽ نتيجة المباراة").setColor(0xFFD700)
-            .addFields({ name: "المواجهة", value: `${role1} VS ${role2}` }, { name: "النتيجة", value: collected.first().content });
-        bot.channels.cache.get(CHANNEL_DEST)?.send({ embeds: [embed] });
+        const embed = new EmbedBuilder().setTitle("⚽ نتيجة المباراة").setColor(0xFFD700).addFields({ name: "المواجهة", value: `${role1} VS ${role2}` }, { name: "النتيجة", value: collected.first().content });
+        client.channels.cache.get(CHANNEL_DEST)?.send({ embeds: [embed] });
     }
 
     if (command === 'خبر') {
         const content = args.join(" ");
         const embed = new EmbedBuilder().setTitle("📢 خبر عاجل").setDescription(content).setColor(0xFF0000);
-        bot.channels.cache.get(CHANNEL_NEWS)?.send({ content: `<@&${ROLE_EVERYONE}>`, embeds: [embed] });
+        client.channels.cache.get(CHANNEL_NEWS)?.send({ content: `<@&${ROLE_EVERYONE}>`, embeds: [embed] });
         message.reply("تم نشر الخبر.");
     }
 
@@ -101,4 +110,4 @@ bot.on('messageCreate', async message => {
     if (command === 'الغاء') { live_mode = false; message.reply("تم إيقاف وضع البث الحي."); }
 });
 
-bot.login(process.env.TOKEN);
+client.login(TOKEN);
