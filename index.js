@@ -1,6 +1,5 @@
 require('./keep_alive.js');
-const { Client, GatewayIntentBits, EmbedBuilder, Role } = require('discord.js');
-const http = require('http');
+const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 
 const bot = new Client({ 
     intents: [
@@ -10,7 +9,6 @@ const bot = new Client({
     ] 
 });
 
-// الثوابت (IDs)
 const CHANNEL_SOURCE = "1511089965424054292";
 const CHANNEL_DEST = "1508470750456315974";
 const CHANNEL_NEWS = "1506417724010528928";
@@ -18,7 +16,6 @@ const ROLE_EVERYONE = "1478799212312531089";
 
 let live_mode = false;
 
-// دالة تحويل الوقت
 function parseTime(timeStr) {
     const match = timeStr.match(/(\d+)([dhms])/);
     if (!match) return 0;
@@ -30,12 +27,16 @@ function parseTime(timeStr) {
 
 bot.on('ready', () => {
     console.log(`البوت يعمل كـ ${bot.user.tag}`);
+    // تفعيل حالة البث البنفسجي
+    bot.user.setActivity("كاس العالم 2026", { 
+        type: 1, // 1 يرمز لـ STREAMING في ديسكورد
+        url: 'https://www.twitch.tv/your-channel-name' // ضع رابط قناتك هنا
+    });
 });
 
 bot.on('messageCreate', async message => {
     if (message.author.bot) return;
 
-    // وضع البث الحي
     if (live_mode && message.channel.id === CHANNEL_SOURCE && !message.content.startsWith('!')) {
         const destChannel = bot.channels.cache.get(CHANNEL_DEST);
         if (destChannel) {
@@ -48,7 +49,6 @@ bot.on('messageCreate', async message => {
     const args = message.content.slice(1).split(/ +/);
     const command = args.shift().toLowerCase();
 
-    // 1. أمر !رتب
     if (command === 'رتب' && message.channel.id === CHANNEL_SOURCE) {
         const role1 = message.mentions.roles.at(0);
         const role2 = message.mentions.roles.at(1);
@@ -79,7 +79,6 @@ bot.on('messageCreate', async message => {
         await timerMsg.edit({ content: "⚽ المباراة بدأت الآن!", embeds: [embed] });
     }
 
-    // 2. أمر !صار
     if (command === 'صار') {
         const role1 = message.mentions.roles.at(0);
         const role2 = message.mentions.roles.at(1);
@@ -91,7 +90,6 @@ bot.on('messageCreate', async message => {
         bot.channels.cache.get(CHANNEL_DEST)?.send({ embeds: [embed] });
     }
 
-    // 3. أمر !خبر
     if (command === 'خبر') {
         const content = args.join(" ");
         const embed = new EmbedBuilder().setTitle("📢 خبر عاجل").setDescription(content).setColor(0xFF0000);
@@ -99,12 +97,8 @@ bot.on('messageCreate', async message => {
         message.reply("تم نشر الخبر.");
     }
 
-    // 4. أوامر البث
     if (command === 'اخبار') { live_mode = true; message.reply("تم تفعيل وضع البث الحي."); }
     if (command === 'الغاء') { live_mode = false; message.reply("تم إيقاف وضع البث الحي."); }
 });
 
-// سيرفر Keep-Alive لـ Render
-http.createServer((req, res) => res.end("OK")).listen(process.env.PORT || 8080);
-
-bot.login(process.env.DISCORD_TOKEN);
+bot.login(process.env.TOKEN);
