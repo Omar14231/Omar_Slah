@@ -1,3 +1,4 @@
+require('./keep_alive.js');
 const { Client, GatewayIntentBits, EmbedBuilder, Role } = require('discord.js');
 const http = require('http');
 
